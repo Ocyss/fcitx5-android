@@ -1270,7 +1270,12 @@ class TextKeyboardLayoutEditorActivity : AppCompatActivity() {
 
         subModeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selected = subModeSpinnerSelectionMap.getOrNull(position) ?: return
+                // 位置 0 的「默认」项映射值**就是** null（表示基础布局），这是合法取值而非"取不到"。
+                // 用 `getOrNull(position) ?: return` 会把这一项误判成越界而直接返回：下拉框视觉上
+                // 已经切回「默认」，内存里的 previewSubModeLabel 却仍停在原方案、编辑区继续显示原方案的
+                // 按键——这正是"选回默认 rime 布局却切不过去"的原因。必须按位置有效性判断。
+                if (!SubModeManager.isValidSpinnerPosition(subModeSpinnerSelectionMap, position)) return
+                val selected = subModeSpinnerSelectionMap[position]
                 if (selected == previewSubModeLabel) return
 
                 // Save state for potential rollback
@@ -1295,17 +1300,17 @@ class TextKeyboardLayoutEditorActivity : AppCompatActivity() {
                     // Rollback state on failure
                     previewSubModeLabel = oldSubModeLabel
                     lastEditingTarget = oldLastEditingTarget
-                    // selected 已在上面经 `?: return` 收窄为非空，这里的提示文本直接用它；
-                    // 选中的是「默认」项时它本该是 null 且会在更早处返回，不会走到这个 catch。
+                    // selected 可能为 null：那表示用户选的是「默认」项（基础布局）。提示文本必须
+                    // 换成「默认」的本地化文案，否则格式化出来的是 "null"。
                     android.util.Log.e(
                         "TextKeyboardLayoutEditor",
-                        "Failed to switch submode to: $selected",
+                        "Failed to switch submode to: ${selected ?: "default"}",
                         e
                     )
                     showToast(
                         getString(
                             R.string.text_keyboard_layout_switch_submode_failed,
-                            selected
+                            selected ?: getString(R.string.default_)
                         )
                     )
                 }
@@ -2251,13 +2256,15 @@ class TextKeyboardLayoutEditorActivity : AppCompatActivity() {
         if (selectedLayout != null) {
             currentLayout = selectedLayout
         }
+        val spinnerPosition = subModeSpinner.selectedItemPosition
         previewSubModeLabel = if (
             subModeSpinner.visibility == View.VISIBLE &&
             subModeSpinner.adapter != null &&
-            subModeSpinner.selectedItemPosition >= 0
+            SubModeManager.isValidSpinnerPosition(subModeSpinnerSelectionMap, spinnerPosition)
         ) {
             // 按位置查映射表，不读 selectedItem 文本：首项显示的是「默认」这类本地化文案。
-            subModeSpinnerSelectionMap.getOrNull(subModeSpinner.selectedItemPosition)
+            // 位置 0 命中「默认」项时这里正确地得到 null（=基础布局）。
+            subModeSpinnerSelectionMap[spinnerPosition]
         } else {
             null
         }

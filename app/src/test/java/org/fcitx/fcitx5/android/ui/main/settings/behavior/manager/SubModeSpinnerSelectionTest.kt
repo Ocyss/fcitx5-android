@@ -5,7 +5,9 @@
 package org.fcitx.fcitx5.android.ui.main.settings.behavior.manager
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -62,5 +64,29 @@ class SubModeSpinnerSelectionTest {
         val map = SubModeManager.buildSpinnerSelectionMap(listOf("x", "x"))
         assertEquals(0, map.indexOf(null))
         assertEquals(1, map.indexOf("x"))
+    }
+
+    @Test
+    fun positionZeroIsValidDespiteNullValue() {
+        // 位置 0 的映射值就是 null（基础布局），但它是个**合法位置**。
+        // 曾用 `getOrNull(position) ?: return` 判断，把"值恰好是 null"当成越界，
+        // 于是「默认」项永远点不动：下拉框显示回到「默认」，编辑区却仍是原方案。
+        val map = SubModeManager.buildSpinnerSelectionMap(listOf("wanxiang", "wanxiang_t9"))
+        assertTrue("位置 0（null = 默认项）必须被判为有效", SubModeManager.isValidSpinnerPosition(map, 0))
+        assertNull("位置 0 的取值应当仍是 null", map[0])
+    }
+
+    @Test
+    fun outOfRangePositionsAreInvalid() {
+        val map = SubModeManager.buildSpinnerSelectionMap(listOf("a"))
+        assertFalse(SubModeManager.isValidSpinnerPosition(map, -1))
+        assertFalse(SubModeManager.isValidSpinnerPosition(map, map.size))
+    }
+
+    @Test
+    fun everyPositionOfTheMapIsValid() {
+        // 边界：空标签时只有「默认」一项，位置 0 仍必须可选中
+        val map = SubModeManager.buildSpinnerSelectionMap(emptyList())
+        assertTrue(SubModeManager.isValidSpinnerPosition(map, 0))
     }
 }

@@ -66,6 +66,19 @@ class SubModeManager(
          */
         fun buildSpinnerSelectionMap(labels: List<String>): List<String?> =
             listOf<String?>(null) + labels
+
+        /**
+         * 下拉框位置是否有效。
+         *
+         * 位置 0 的映射值是 null（显式「默认」项 = 基础布局），这是**合法取值**，不能用
+         * `getOrNull(position) ?: return` 这类写法把"值恰好是 null"当成"取不到"：那会让
+         * 「默认」项永远点不动——用户看着下拉框回到「默认」、编辑区却仍是原方案。
+         *
+         * @param selectionMap 见 [buildSpinnerSelectionMap]
+         * @param position 下拉框选中位置
+         */
+        fun isValidSpinnerPosition(selectionMap: List<String?>, position: Int): Boolean =
+            position in selectionMap.indices
     }
 
     /**
