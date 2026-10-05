@@ -19,11 +19,11 @@ class ToolbarMetricsTest {
 
     @Test
     fun `一百百分比时图标与留白逐像素等于原实现`() {
-        // 回归保险：100% 必须和改动前完全一致（24dp 图标 + 10dp 留白 + 44dp 格子）。
-        assertEquals(24, ToolbarMetrics.iconSizeDp(100))
+        // 回归保险：100% 必须和改动前完全一致（20dp 有效图标 + 10dp 留白 + 40dp 图标方框；按钮足迹仍为44dp）。
+        assertEquals(20, ToolbarMetrics.iconSizeDp(100))
         assertEquals(10, ToolbarMetrics.iconPaddingDp(100))
-        assertEquals(44, ToolbarMetrics.iconBoxDp(100))
-        assertEquals(24 + 10 * 2, ToolbarMetrics.BUTTON_FOOTPRINT_DP)
+        assertEquals(40, ToolbarMetrics.iconBoxDp(100))
+        assertEquals(44, ToolbarMetrics.BUTTON_FOOTPRINT_DP)
     }
 
     @Test
@@ -70,7 +70,7 @@ class ToolbarMetricsTest {
             assertTrue("$percent%: pad=$pad", pad >= ToolbarMetrics.MIN_ICON_GAP_DP)
             assertTrue("$percent%: icon", ToolbarMetrics.iconSizeDp(percent) >= 1)
         }
-        // 200% 时图标吃掉留白：24dp→40dp，留白 10dp→2dp，格子仍是 44dp。
+        // 200% 时图标吃掉留白：20dp→40dp，留白 10dp→2dp，格子仍是 44dp。
         assertEquals(40, ToolbarMetrics.iconSizeDp(200))
         assertEquals(2, ToolbarMetrics.iconPaddingDp(200))
         assertEquals(44, ToolbarMetrics.iconBoxDp(200))

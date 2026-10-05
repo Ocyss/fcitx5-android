@@ -81,8 +81,7 @@ class ToolButton(context: Context) : CustomGestureView(context) {
      * 应用「工具栏大小」图标缩放。
      *
      * 图标要**跟随工具栏一起变大**，光把按钮撑高是不够的：`wrap_content` 的 ImageView 按
-     * 「intrinsic 尺寸 + padding」测量，24dp 的内置 vector 放在 80dp 高的按钮里也只会得到
-     * 一个 44dp 的方框，图案仍是 24dp。`maxWidth` 只能**封顶**、不能**撑大**，所以这里改成
+     * 「intrinsic 尺寸 + padding」测量；在 40dp 高工具栏中，24dp intrinsic 图标会被上下 10dp 留白压到 20dp。`maxWidth` 只能**封顶**、不能**撑大**，所以这里改成
      * 直接给 image 一个显式方框尺寸。
      *
      * 尺寸来自 [ToolbarMetrics]，**不来自父容器实测宽度**：留白会吃掉一部分宽度，只看父容器
@@ -93,8 +92,8 @@ class ToolButton(context: Context) : CustomGestureView(context) {
      * 3 个图标就是这么来的）。所以 [ToolbarMetrics.iconSizeDp] 对 200% 只放到 40dp，
      * 留白同步从 10dp 收到 2dp——**格子总宽恒为 44dp**，按钮个数因此不变。
      *
-     * 100% 时方框正好是 44dp（24dp 图标 + 两侧 10dp 留白），与改动前 wrap_content 测出的
-     * 结果逐像素一致。
+     * 100% 时图标方框为 40dp（20dp 有效图案 + 两侧 10dp 留白），按钮横向足迹仍为 44dp；这与改动前
+     * 40dp 高度约束下实际绘制的 20dp 图案逐像素一致。
      *
      * @param slotDp 这个按钮能拿到的格子宽度（dp）。中间按钮行用 [ToolbarMetrics.BUTTON_FOOTPRINT_DP]；
      *   工具栏左右两侧的方形按钮边长等于栏高，传栏高即可（栏调高它们才跟着长大）。
