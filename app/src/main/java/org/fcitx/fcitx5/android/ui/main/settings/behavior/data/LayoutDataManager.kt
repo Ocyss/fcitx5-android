@@ -9,6 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
+import org.fcitx.fcitx5.android.data.theme.ThemeManager
+import org.fcitx.fcitx5.android.data.theme.ThemePrefs
 import org.fcitx.fcitx5.android.input.keyboard.AuxBarPosition
 import org.fcitx.fcitx5.android.input.keyboard.AuxBarConfig
 import org.fcitx.fcitx5.android.input.keyboard.LayoutVariant
@@ -145,6 +147,11 @@ class LayoutDataManager(private val context: Context) {
                 row.map { key -> key.toMutableMap() }.toMutableList()
             }.toMutableList()
         }
+        if (fileHasContent) {
+            val legacyToDown = ThemeManager.prefs.punctuationPosition.getValue() ==
+                ThemePrefs.PunctuationPosition.Bottom
+            LayoutJsonUtils.migrateDirectionalSwipeFields(entries, legacyToDown)
+        }
         layoutHeightPercentOverrides.putAll(lastParsedLayoutHeightPercentOverrides)
         layoutHeightPercentOverridesLandscape.putAll(lastParsedLayoutHeightPercentOverridesLandscape)
         layoutAuxBarConfigs.putAll(lastParsedLayoutAuxBarConfigs)
@@ -213,6 +220,9 @@ class LayoutDataManager(private val context: Context) {
                 row.map { key -> key.toMutableMap() }.toMutableList()
             }.toMutableList()
         }
+        val legacyToDown = ThemeManager.prefs.punctuationPosition.getValue() ==
+            ThemePrefs.PunctuationPosition.Bottom
+        LayoutJsonUtils.migrateDirectionalSwipeFields(entries, legacyToDown)
         layoutHeightPercentOverrides.clear()
         layoutHeightPercentOverrides.putAll(lastParsedLayoutHeightPercentOverrides)
         layoutHeightPercentOverridesLandscape.clear()
