@@ -168,11 +168,6 @@ class LongPressPopupKeyboardUi(
         }
         // Otherwise, return the key action for the selected item
         val key = keys.getOrNull(focusedIndex) ?: return null
-        // 多字符字符串同样改用 CommitAction 提交，见 PopupKeyboardUi.onTrigger
-        return if (key.codePointCount(0, key.length) == 1) {
-            KeyAction.FcitxKeyAction(key)
-        } else {
-            KeyAction.CommitAction(key)
-        }
+        return popupKeyAction(key)
     }
 }
