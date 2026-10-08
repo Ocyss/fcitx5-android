@@ -224,7 +224,13 @@ class PopupKeyboardUi(
 
     override fun onTrigger(): KeyAction? {
         val key = keys.getOrNull(focusedIndex) ?: return null
-        return KeyAction.FcitxKeyAction(key)
+        // 多字符字符串不是合法的 fcitx 按键名（FcitxKeyAction 只取 act[0] 计算 scancode，
+        // fcitx 侧解析失败就静默丢弃），参考 MacroKey 的 text 操作，改用 CommitAction 直接提交。
+        return if (key.codePointCount(0, key.length) == 1) {
+            KeyAction.FcitxKeyAction(key)
+        } else {
+            KeyAction.CommitAction(key)
+        }
     }
 
 }
