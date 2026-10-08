@@ -860,15 +860,17 @@ class AltTextKeyView(
     }
 
     private fun resolveLayoutMode(keyHeight: Int): AltTextLayoutMode {
+        val pref = punctuationPositionForKey()
         if (def.directionalSwipeLabels) {
-            return if (altText.text.isNullOrBlank() && altText1.text.isNullOrBlank()) {
+            return if (pref == PunctuationPosition.None) {
+                AltTextLayoutMode.Hidden
+            } else if (altText.text.isNullOrBlank() && altText1.text.isNullOrBlank()) {
                 AltTextLayoutMode.Hidden
             } else {
                 AltTextLayoutMode.DirectionalTopBottom
             }
         }
         if (altText.text.isNullOrBlank()) return AltTextLayoutMode.Hidden
-        val pref = punctuationPositionForKey()
 
         val preferred = when (pref) {
             PunctuationPosition.TopRight -> AltTextLayoutMode.TopRight
@@ -1245,15 +1247,17 @@ class ImageAltTextKeyView(
     }
 
     private fun resolveLayoutMode(keyHeight: Int): AltTextLayoutMode {
+        val pref = punctuationPositionForKey()
         if (def.directionalSwipeLabels) {
-            return if (altText.text.isNullOrBlank() && altText1.text.isNullOrBlank()) {
+            return if (pref == PunctuationPosition.None) {
+                AltTextLayoutMode.Hidden
+            } else if (altText.text.isNullOrBlank() && altText1.text.isNullOrBlank()) {
                 AltTextLayoutMode.Hidden
             } else {
                 AltTextLayoutMode.DirectionalTopBottom
             }
         }
         if (altText.text.isNullOrBlank()) return AltTextLayoutMode.Hidden
-        val pref = punctuationPositionForKey()
 
         val preferred = when (pref) {
             PunctuationPosition.TopRight -> AltTextLayoutMode.TopRight

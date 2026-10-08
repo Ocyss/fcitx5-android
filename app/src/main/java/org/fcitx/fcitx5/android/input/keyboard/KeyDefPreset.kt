@@ -796,7 +796,9 @@ class NumPadKey(
  *
  * @param label 标签文本（未设置 displayText 时作为显示文本）
  * @param displayText 用户显式设置的显示文本（可选，优先级高于 label）
- * @param altLabel 备选显示文本（划动行为，可选）
+ * @param altLabel 旧版统一划动备选显示文本（可选，兼容旧布局）
+ * @param swipeUpLabel 上滑时显示的标签文本（可选）
+ * @param swipeDownLabel 下滑时显示的标签文本（可选）
  * @param longPressLabel 长按时在 Popup 选单中显示的标签文本（可选）
  * @param tap 点击时执行的 macro
  * @param swipeUp 上划执行的 macro（可选）
@@ -812,6 +814,8 @@ class MacroKey(
     val displayText: String? = null,
     val character: String = label,
     val altLabel: String? = null,
+    val swipeUpLabel: String? = null,
+    val swipeDownLabel: String? = null,
     val longPressLabel: String? = null,
     val tap: MacroAction,
     val swipeUp: MacroAction? = null,
@@ -832,7 +836,8 @@ class MacroKey(
 ) : KeyDef(
     Appearance.AltText(
         displayText = displayText?.takeIf { it.isNotEmpty() } ?: label,
-        altText = altLabel ?: "",
+        altText = if (swipeUpLabel != null || swipeDownLabel != null) swipeUpLabel.orEmpty() else altLabel.orEmpty(),
+        altText1 = swipeDownLabel,
         character = character,
         textSize = 23f,
         percentWidth = percentWidth,
@@ -846,7 +851,9 @@ class MacroKey(
         shadowColor = shadowColor,
         shadowColorMonet = shadowColorMonet,
         keepDisplayTextCase = !displayText.isNullOrEmpty()
-    ),
+        ).apply {
+            directionalSwipeLabels = swipeUpLabel != null || swipeDownLabel != null
+        },
     buildBehaviors(tap, swipeUp, swipeDown, swipe, longPress),
     // Popup 候选沿用「实际显示的文本」：显式 displayText 优先，未设置时回落到标签文本，
     // 与改动前（label 即显示文本）的候选列表保持一致。
@@ -935,7 +942,8 @@ class MacroKey(
                         Behavior.Swipe(
                             upMacro = executableUp,
                             downMacro = executableDown,
-                            legacyMacro = executableLegacy
+                            legacyMacro = executableLegacy,
+                            overrideDefaults = executableUp != null || executableDown != null
                         )
                     )
                 }

@@ -146,7 +146,6 @@ class KeyEditorActivity : AppCompatActivity() {
     private var macroDisplayTextSimpleValue = ""
     private val macroDisplayTextModeItems = mutableListOf<KeyboardEditorUiBuilder.DisplayTextItem>()
     private val macroDisplayTextRowBindings = mutableListOf<KeyboardEditorUiBuilder.DisplayTextRowBinding>()
-    private var macroAltLabelEdit: EditText? = null
     private var macroLongPressLabelEdit: EditText? = null
     private var macroWeightEdit: EditText? = null
 
@@ -456,7 +455,6 @@ class KeyEditorActivity : AppCompatActivity() {
         macroDisplayTextSimpleValue = ""
         macroDisplayTextModeItems.clear()
         macroDisplayTextRowBindings.clear()
-        macroAltLabelEdit = null
         macroWeightEdit = null
         simpleWeightEdit = null
         rowHeightPercentEdit = null
@@ -687,17 +685,13 @@ class KeyEditorActivity : AppCompatActivity() {
                     getString(R.string.text_keyboard_layout_key_label),
                     keyData["label"] as? String ?: ""
                 )
-                val altLabelEdit = uiBuilder.createEditField(
-                    getString(R.string.text_keyboard_layout_alt_label),
-                    keyData["altLabel"] as? String ?: ""
-                )
                 val longPressLabelEdit = uiBuilder.createEditField(
                     getString(R.string.text_keyboard_layout_longpress_label),
                     keyData["longPressLabel"] as? String ?: ""
                 )
                 longPressLabelEdit.second.hint = getString(R.string.text_keyboard_layout_longpress_label_fallback_hint)
                 fieldsContainer.addView(labelEdit.first)
-                fieldsContainer.addView(altLabelEdit.first)
+                addDirectionalSwipeLabelEditors(keyData)
                 fieldsContainer.addView(longPressLabelEdit.first)
                 if (!disableWeightEditing) {
                     val weightEdit = uiBuilder.createEditField(
@@ -709,7 +703,6 @@ class KeyEditorActivity : AppCompatActivity() {
                 }
 
                 macroLabelEdit = labelEdit.second
-                macroAltLabelEdit = altLabelEdit.second
                 macroLongPressLabelEdit = longPressLabelEdit.second
 
                 val labelTextContainer = LinearLayout(this).apply {
@@ -1237,7 +1230,11 @@ class KeyEditorActivity : AppCompatActivity() {
 
     private fun addDirectionalSwipeLabelEditors(keyData: Map<String, Any?>) {
         val hasDirectionalLabel = keyData.containsKey("swipeUpLabel") || keyData.containsKey("swipeDownLabel")
-        val legacyLabel = keyData["swipeLabel"] as? String
+        val legacyLabel = if (keyData["type"] == "MacroKey") {
+            keyData["altLabel"] as? String
+        } else {
+            keyData["swipeLabel"] as? String
+        }
         val upLabel = keyData["swipeUpLabel"] as? String
             ?: if (!hasDirectionalLabel && !legacySwipeToDown()) legacyLabel.orEmpty() else ""
         val downLabel = keyData["swipeDownLabel"] as? String
@@ -1673,8 +1670,7 @@ class KeyEditorActivity : AppCompatActivity() {
             "MacroKey" -> {
                 val baseLabel = macroLabelEdit?.text?.toString().orEmpty()
                 if (baseLabel.isNotEmpty()) draft["label"] = baseLabel
-                val altLabel = macroAltLabelEdit?.text?.toString().orEmpty()
-                if (altLabel.isNotEmpty()) draft["altLabel"] = altLabel
+                appendDirectionalSwipeLabels(draft)
                 val longPressLabel = macroLongPressLabelEdit?.text?.toString().orEmpty()
                 if (longPressLabel.isNotEmpty()) draft["longPressLabel"] = longPressLabel
                 if (!disableWeightEditing) {
@@ -2019,7 +2015,6 @@ class KeyEditorActivity : AppCompatActivity() {
             macroDisplayTextSimpleValue,
             macroDisplayTextModeItems,
             macroDisplayTextRowBindings,
-            macroAltLabelEdit,
             macroLongPressLabelEdit,
             macroWeightEdit,
             simpleWeightEdit
@@ -2112,7 +2107,6 @@ class KeyEditorActivity : AppCompatActivity() {
         macroDisplayTextSimpleValue: String,
         macroDisplayTextModeItems: List<KeyboardEditorUiBuilder.DisplayTextItem>,
         macroDisplayTextRowBindings: List<KeyboardEditorUiBuilder.DisplayTextRowBinding>,
-        macroAltLabelEdit: EditText?,
         macroLongPressLabelEdit: EditText?,
         macroWeightEdit: EditText?,
         simpleWeightEdit: EditText?
@@ -2219,8 +2213,7 @@ class KeyEditorActivity : AppCompatActivity() {
             "MacroKey" -> {
                 val baseLabel = macroLabelEdit?.text?.toString().orEmpty()
                 newKey["label"] = baseLabel
-                val altLabel = macroAltLabelEdit?.text?.toString().orEmpty()
-                if (altLabel.isNotEmpty()) newKey["altLabel"] = altLabel
+                appendDirectionalSwipeLabels(newKey)
                 val longPressLabel = macroLongPressLabelEdit?.text?.toString().orEmpty()
                 if (longPressLabel.isNotEmpty()) newKey["longPressLabel"] = longPressLabel
                 if (!disableWeightEditing) {

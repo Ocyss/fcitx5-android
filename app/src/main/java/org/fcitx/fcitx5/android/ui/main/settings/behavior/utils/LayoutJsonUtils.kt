@@ -597,17 +597,23 @@ object LayoutJsonUtils {
                         keyChanged = true
                     }
                 }
-                if (type != "MacroKey") {
-                    val hasNewLabel = key.containsKey("swipeUpLabel") ||
-                        key.containsKey("swipeDownLabel")
+                val hasNewLabel = key.containsKey("swipeUpLabel") ||
+                    key.containsKey("swipeDownLabel")
+                if (type == "MacroKey") {
                     if (hasNewLabel) {
-                        key.remove("swipeLabel")?.let { keyChanged = true }
-                    } else {
+                        key.remove("altLabel")?.let { keyChanged = true }
+                    } else if (key.containsKey("altLabel")) {
                         val targetLabel = if (legacyToDownForKey) "swipeDownLabel" else "swipeUpLabel"
-                        if (key.containsKey("swipeLabel")) {
-                            key[targetLabel] = key.remove("swipeLabel")
-                            keyChanged = true
-                        }
+                        key[targetLabel] = key.remove("altLabel")
+                        keyChanged = true
+                    }
+                } else if (hasNewLabel) {
+                    key.remove("swipeLabel")?.let { keyChanged = true }
+                } else {
+                    val targetLabel = if (legacyToDownForKey) "swipeDownLabel" else "swipeUpLabel"
+                    if (key.containsKey("swipeLabel")) {
+                        key[targetLabel] = key.remove("swipeLabel")
+                        keyChanged = true
                     }
                 }
             }
@@ -886,7 +892,8 @@ object LayoutJsonUtils {
                 keyDef.swipe, keyDef.swipeUp, keyDef.swipeDown
             )
             is MacroKey -> putDirectionalSwipeFields(
-                json, null, null, null, keyDef.swipe, keyDef.swipeUp, keyDef.swipeDown
+                json, null, keyDef.swipeUpLabel, keyDef.swipeDownLabel, keyDef.swipe,
+                keyDef.swipeUp, keyDef.swipeDown
             )
             else -> Unit
         }
@@ -1013,9 +1020,6 @@ object LayoutJsonUtils {
             is MacroKey -> {
                 json["label"] = keyDef.label
                 keyDef.displayText?.takeIf { it.isNotEmpty() }?.let { json["displayText"] = it }
-                if (keyDef.altLabel != null) {
-                    json["altLabel"] = keyDef.altLabel
-                }
                 if (keyDef.longPressLabel != null) {
                     json["longPressLabel"] = keyDef.longPressLabel
                 }
@@ -1330,6 +1334,8 @@ object LayoutJsonUtils {
                     displayText = resolvedDisplayText,
                     character = baseLabel.ifEmpty { resolvedDisplayText ?: "" },
                     altLabel = altLabel.ifEmpty { null },
+                    swipeUpLabel = key.swipeUpLabel,
+                    swipeDownLabel = key.swipeDownLabel,
                     longPressLabel = key.longPressLabel,
                     tap = tap,
                      swipeUp = key.swipeUp,
