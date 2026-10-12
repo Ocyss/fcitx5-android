@@ -694,9 +694,16 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
                             backspaceBoundaryGuard.onUserKeyAction()
                             handleArrowKey(KeyEvent.KEYCODE_DPAD_DOWN)
                         }
-                        else -> if (it.unicode > 0) {
-                            backspaceBoundaryGuard.onCommit()
-                            commitText(Character.toString(it.unicode))
+                        else -> if (!it.up && it.unicode > 0) {
+                            // 引擎会话进行中（preedit 非空，如 Rime 计算器/大写模式）时，
+                            // 未被引擎消费的按键不应兜底上屏，与桌面端行为一致：直接丢弃，
+                            // 否则中文符号（、¥ 等）会绕过引擎漏进输入框。
+                            if (backspaceGuardClientPreeditNotEmpty || backspaceGuardPanelPreeditNotEmpty) {
+                                Timber.v("Swallow unhandled Virtual KeyEvent while composing: $it")
+                            } else {
+                                backspaceBoundaryGuard.onCommit()
+                                commitText(Character.toString(it.unicode))
+                            }
                         } else {
                             Timber.w("Unhandled Virtual KeyEvent: $it")
                         }
