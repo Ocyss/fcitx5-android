@@ -161,11 +161,12 @@ class AddonDirProfileManagerFragment : Fragment() {
         val paths = cfg.findByName("Paths")?.value.orEmpty()
             .lineSequence()
             .mapNotNull { line ->
-                val tab = line.indexOf('\t')
-                if (tab <= 0 || tab + 1 >= line.length) return@mapNotNull null
-                line.substring(0, tab) to line.substring(tab + 1)
+                val sep = line.indexOf('|')
+                if (sep <= 0 || sep + 1 >= line.length) return@mapNotNull null
+                line.substring(0, sep) to line.substring(sep + 1)
             }
             .toMap()
+        Timber.d("Profile manager state: current=$current, profiles=$profiles, paths=$paths")
         val error = cfg.findByName("Error")?.value.orEmpty()
         return ManagerState(
             current = current,
@@ -352,6 +353,7 @@ class AddonDirProfileManagerFragment : Fragment() {
         if (!externalPath.isNullOrBlank()) {
             items.add(RawConfig("ExternalPath", externalPath))
         }
+        Timber.d("Profile action: $action, name=$name, newName=$newName, externalPath=$externalPath")
         try {
             viewModel.fcitx.runOnReady {
                 setAddonSubConfig(args.addon, args.path, RawConfig(items.toTypedArray()))
