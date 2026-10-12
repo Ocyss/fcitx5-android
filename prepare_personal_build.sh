@@ -7,7 +7,7 @@
 echo "updating fcitx5-rime"
 pushd plugin/rime/src/main/cpp/fcitx5-rime
 PINNED=$(git rev-parse HEAD)
-git remote add gh https://github.com/SandyYuR/fcitx5-rime.git || git remote set-url gh https://github.com/SandyYuR/fcitx5-rime.git
+git remote add gh https://github.com/Ocyss/fcitx5-rime.git || git remote set-url gh https://github.com/Ocyss/fcitx5-rime.git
 if git fetch -v gh "$PINNED" 2>/dev/null && git checkout "$PINNED" 2>/dev/null; then
   echo "fcitx5-rime: using gitlink-pinned $PINNED"
 else
@@ -16,7 +16,7 @@ else
   git checkout gh/master
 fi
 popd
-sed -i 's|github.com/fcitx/|github.com/SandyYuR/|g; s|github.com/fxliang/|github.com/SandyYuR/|g' app/licenses/libraries/fcitx5-rime.json
+sed -i 's|github.com/fcitx/|github.com/Ocyss/|g; s|github.com/fxliang/|github.com/Ocyss/|g' app/licenses/libraries/fcitx5-rime.json
 
 # apply fcitx5 patch from fcitx5-rime
 echo "applying fcitx5 patch"
