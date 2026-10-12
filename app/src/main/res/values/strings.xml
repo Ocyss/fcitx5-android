@@ -152,6 +152,9 @@
     <string name="addon_dir_profile_delete_confirm">Delete data directory "%1$s"?</string>
     <string name="addon_dir_profile_delete_last_forbidden">At least one data directory must remain</string>
     <string name="addon_dir_profile_current_format">%1$s (current)</string>
+    <string name="addon_dir_profile_use_external_path">Use external path</string>
+    <string name="addon_dir_profile_all_files_permission_required">Please grant \"All files access\" first</string>
+    <string name="addon_dir_profile_external_dir_invalid">Unable to use the selected directory</string>
     <string name="reset">Reset</string>
     <string name="reload_config">Reload Config</string>
     <string name="input_method_options">Input Method Options</string>

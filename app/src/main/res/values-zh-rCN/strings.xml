@@ -145,6 +145,9 @@
     <string name="addon_dir_profile_delete_confirm">删除数据目录“%1$s”？</string>
     <string name="addon_dir_profile_delete_last_forbidden">至少保留一个数据目录</string>
     <string name="addon_dir_profile_current_format">%1$s（当前）</string>
+    <string name="addon_dir_profile_use_external_path">使用外部路径</string>
+    <string name="addon_dir_profile_all_files_permission_required">请先授予“所有文件访问”权限</string>
+    <string name="addon_dir_profile_external_dir_invalid">无法使用所选择的目录</string>
     <string name="reset">重置</string>
     <string name="reload_config">重载配置</string>
     <string name="input_method_options">输入法设置</string>

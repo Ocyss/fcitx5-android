@@ -56,6 +56,12 @@ abstract class DynamicListAdapter<T>(
 
     abstract fun showEntry(x: T): String
 
+    /**
+     * Optional secondary text shown below [showEntry] in a smaller style.
+     * Return null to keep the subtitle hidden (default).
+     */
+    open fun showSubEntry(x: T): CharSequence? = null
+
     private var mainViewModel: MainViewModel? = null
 
     fun setViewModel(model: MainViewModel) {
@@ -67,6 +73,7 @@ abstract class DynamicListAdapter<T>(
         val handleImage = entryUi.handleImage
         val checkBox = entryUi.checkBox
         val nameText = entryUi.nameText
+        val subText = entryUi.subText
         val editButton = entryUi.editButton
         val settingsButton = entryUi.settingsButton
     }
@@ -86,6 +93,9 @@ abstract class DynamicListAdapter<T>(
                 else false
             }
             nameText.text = showEntry(item)
+            val subEntry = showSubEntry(item)
+            subText.visibility = if (subEntry.isNullOrEmpty()) View.GONE else View.VISIBLE
+            subText.text = subEntry
 
             if (multiselect) {
                 handleImage.visibility = View.GONE

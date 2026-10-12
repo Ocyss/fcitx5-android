@@ -5,13 +5,20 @@
 package org.fcitx.fcitx5.android.ui.main.settings
 
 import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.DocumentsContract
+import android.provider.Settings
 import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -28,11 +35,13 @@ import timber.log.Timber
 
 class AddonDirProfileManagerFragment : Fragment() {
 
-    private data class ProfileEntry(val name: String, val active: Boolean)
+    private data class ProfileEntry(val name: String, val active: Boolean, val path: String?)
 
     private data class ManagerState(
         val current: String,
         val profiles: List<String>,
+        // profile name -> resolved absolute path, reported by the engine
+        val paths: Map<String, String>,
         val error: String
     )
 
@@ -41,6 +50,22 @@ class AddonDirProfileManagerFragment : Fragment() {
 
     private var containerView: FrameLayout? = null
     private var latestState: ManagerState? = null
+
+    // Set when the user tapped "Use external path" but the all-files permission
+    // was missing; the folder picker starts once onResume observes the grant.
+    private var pendingExternalPick = false
+
+    private val pickDirectoryLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val path = treeUriToAbsolutePath(uri)
+            if (path == null) {
+                requireContext().toast(R.string.addon_dir_profile_external_dir_invalid)
+                return@registerForActivityResult
+            }
+            val initialName = path.trimEnd('/').substringAfterLast('/')
+            showCreateDialog(externalPath = path, initialName = initialName)
+        }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -62,9 +87,63 @@ class AddonDirProfileManagerFragment : Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Returning from the system "All files access" settings page: re-check
+        // the permission and continue with the folder picker when granted.
+        if (pendingExternalPick) {
+            pendingExternalPick = false
+            if (hasAllFilesAccess()) {
+                pickDirectoryLauncher.launch(null)
+            } else {
+                requireContext().toast(R.string.addon_dir_profile_all_files_permission_required)
+            }
+        }
+    }
+
     override fun onDestroyView() {
         containerView = null
         super.onDestroyView()
+    }
+
+    private fun hasAllFilesAccess(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+                Environment.isExternalStorageManager()
+    }
+
+    private fun requestAllFilesAccess() {
+        pendingExternalPick = true
+        val intent = Intent(
+            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:${requireContext().packageName}")
+        )
+        runCatching { startActivity(intent) }.onFailure {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            }.onFailure {
+                pendingExternalPick = false
+                requireContext().toast(it)
+            }
+        }
+    }
+
+    /**
+     * Convert an external-storage document tree URI (picked via SAF) to a real
+     * absolute path. Only works for local volumes; returns null otherwise.
+     */
+    private fun treeUriToAbsolutePath(uri: Uri): String? {
+        val documentId = runCatching {
+            DocumentsContract.getTreeDocumentId(uri)
+        }.getOrNull() ?: return null
+        val volume = documentId.substringBefore(':')
+        val relative = documentId.substringAfter(':', "").trim('/')
+        val base = when {
+            volume.equals("primary", ignoreCase = true) ->
+                Environment.getExternalStorageDirectory().absolutePath
+            volume.isNotBlank() -> "/storage/$volume"
+            else -> return null
+        }
+        return if (relative.isEmpty()) base else "$base/$relative"
     }
 
     private suspend fun loadState(): ManagerState {
@@ -79,10 +158,19 @@ class AddonDirProfileManagerFragment : Fragment() {
             .filter { it.isNotEmpty() }
             .distinct()
             .toList()
+        val paths = cfg.findByName("Paths")?.value.orEmpty()
+            .lineSequence()
+            .mapNotNull { line ->
+                val tab = line.indexOf('\t')
+                if (tab <= 0 || tab + 1 >= line.length) return@mapNotNull null
+                line.substring(0, tab) to line.substring(tab + 1)
+            }
+            .toMap()
         val error = cfg.findByName("Error")?.value.orEmpty()
         return ManagerState(
             current = current,
             profiles = profiles,
+            paths = paths,
             error = error
         )
     }
@@ -101,7 +189,9 @@ class AddonDirProfileManagerFragment : Fragment() {
         if (state.error.isNotBlank()) {
             requireContext().toast(state.error)
         }
-        val entries = state.profiles.map { ProfileEntry(it, it == state.current) }
+        val entries = state.profiles.map {
+            ProfileEntry(it, it == state.current, state.paths[it])
+        }
         val ui = object : BaseDynamicListUi<ProfileEntry>(
             requireContext(),
             Mode.Custom(),
@@ -133,6 +223,10 @@ class AddonDirProfileManagerFragment : Fragment() {
                 }
             }
 
+            override fun showSubEntry(x: ProfileEntry): CharSequence? {
+                return x.path
+            }
+
             override fun updateFAB() {
                 shouldShowFab = true
                 fab.show()
@@ -147,9 +241,13 @@ class AddonDirProfileManagerFragment : Fragment() {
         containerView?.addView(ui.root)
     }
 
-    private fun showCreateDialog() {
+    private fun showCreateDialog(externalPath: String? = null, initialName: String = "") {
         val input = EditText(requireContext()).apply {
             hint = getString(R.string.name)
+            if (initialName.isNotEmpty()) {
+                setText(initialName)
+                setSelection(initialName.length)
+            }
             setSingleLine(true)
             maxLines = 1
             inputType = InputType.TYPE_CLASS_TEXT
@@ -158,11 +256,19 @@ class AddonDirProfileManagerFragment : Fragment() {
             .setTitle(R.string.addon_dir_profile_create)
             .setView(input)
             .setNegativeButton(android.R.string.cancel, null)
+            // Neutral button sits at the bottom-left of the dialog.
+            .setNeutralButton(R.string.addon_dir_profile_use_external_path) { _, _ ->
+                if (hasAllFilesAccess()) {
+                    pickDirectoryLauncher.launch(null)
+                } else {
+                    requestAllFilesAccess()
+                }
+            }
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val value = input.text?.toString()?.trim().orEmpty()
                 if (value.isNotEmpty()) {
                     viewLifecycleOwner.lifecycleScope.launch {
-                        runAction(action = "create", name = value)
+                        runAction(action = "create", name = value, externalPath = externalPath)
                     }
                 }
             }
@@ -230,13 +336,21 @@ class AddonDirProfileManagerFragment : Fragment() {
             .show()
     }
 
-    private suspend fun runAction(action: String, name: String = "", newName: String = "") {
+    private suspend fun runAction(
+        action: String,
+        name: String = "",
+        newName: String = "",
+        externalPath: String? = null
+    ) {
         val items = mutableListOf(RawConfig("Action", action))
         if (name.isNotBlank()) {
             items.add(RawConfig("Name", name))
         }
         if (newName.isNotBlank()) {
             items.add(RawConfig("NewName", newName))
+        }
+        if (!externalPath.isNullOrBlank()) {
+            items.add(RawConfig("ExternalPath", externalPath))
         }
         try {
             viewModel.fcitx.runOnReady {
