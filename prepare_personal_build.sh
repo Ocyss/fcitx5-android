@@ -21,8 +21,7 @@ prepare_pinned_source() {
   popd
 }
 
-# Keep the paired PR source reachable before it is merged into SandyYuR/fcitx5-rime.
-prepare_pinned_source plugin/rime/src/main/cpp/fcitx5-rime https://github.com/Ocyss/fcitx5-rime.git
+prepare_pinned_source plugin/rime/src/main/cpp/fcitx5-rime https://github.com/SandyYuR/fcitx5-rime.git
 
 # Preserve local core edits and fail when the required patch cannot be applied.
 PATCH="$ROOT/plugin/rime/src/main/cpp/fcitx5-rime/fcitx5-alt-trigger-v4point1.patch"

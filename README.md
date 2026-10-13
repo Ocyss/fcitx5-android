@@ -180,7 +180,7 @@ Rime 共享数据位于应用内部 `usr/share/rime-data`（只含 `default.yaml
 
 ### Rime 引擎来源
 
-- **适配层**（tabs、schema 选单、Shift/alt-trigger 定制）来自 [SandyYuR/fcitx5-rime](https://github.com/SandyYuR/fcitx5-rime)。当前配套 PR 合并前暂从 [Ocyss/fcitx5-rime](https://github.com/Ocyss/fcitx5-rime) 获取固定的 gitlink 提交，合并引擎 PR 后再将 `.gitmodules` 与准备脚本的来源改回 SandyYuR。CI 按主仓库 gitlink 检出指定提交，并把 `fcitx5-alt-trigger-v4point1.patch` 应用到 Fcitx5 core；已应用的补丁会检查，补丁不匹配时中止。准备脚本不清除本地源码修改。
+- **适配层**（tabs、schema 选单、Shift/alt-trigger 定制）来自 [SandyYuR/fcitx5-rime](https://github.com/SandyYuR/fcitx5-rime)。外部数据目录的配套引擎 PR 已合并，子模块与准备脚本均从自有 fork 获取固定提交。CI 按主仓库 gitlink 检出指定提交，并把 `fcitx5-alt-trigger-v4point1.patch` 应用到 Fcitx5 core；已应用的补丁会检查，补丁不匹配时中止。准备脚本不清除本地源码修改。
 - **librime 静态库**来自 [SandyYuR/prebuilt](https://github.com/SandyYuR/prebuilt)，由 [SandyYuR/prebuilder](https://github.com/SandyYuR/prebuilder) 固定官方 librime 提交（当前 `1.17.0-ef1a16a`）并按固定顺序应用 8 个定制补丁——fxliang 功能补丁、音节缓存、词典并行部署、用户词典缓存、词典文件重映射修复、忘记词汇连删同音词修复、万象（amzxyz）的 `rewrite` 滤镜（PR #1232），以及**必须排在末位**的配置指纹补丁——构建四 ABI 静态库后自动推回 prebuilt，主仓库再静态链接进 APK。
 - prebuilt 也按主仓库 gitlink 固定提交检出。更新后需同步 `app/licenses/libraries/` 下的版本元数据，并验证 `RimeGetInputTabs` / `RimeSelectTab` 等定制 API、APK 构建与真机输入行为。
 - ⚠️ 补丁顺序是契约的一部分，末位的指纹补丁必须始终最后应用；**不要**用官方 prebuilt 覆盖 SandyYuR 产物，否则会静默丢掉 tabs、音节缓存、用户词典缓存等定制。
