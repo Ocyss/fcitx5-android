@@ -1,9 +1,9 @@
 {
     "uniqueId": "fcitx/fcitx5-rime",
-    "artifactVersion": "5.1.17",
+    "artifactVersion": "5.1.17+git.769cf10fd61011259f437fbdab4d7abb0699bcfa",
     "description": "Rime Wrapper for Fcitx",
     "name": "fcitx/fcitx5-rime",
-    "website": "https://github.com/fxliang/fcitx5-rime",
+    "website": "https://github.com/SandyYuR/fcitx5-rime",
     "tag": "native",
     "licenses": [
         "LGPL-2.1-or-later"
