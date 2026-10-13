@@ -54,7 +54,7 @@ class DynamicListEntryUi(override val ctx: Context) : Ui {
     val checkBox = checkBox()
 
     val nameText = textView {
-        setPaddingDp(0, 12, 0, 0)
+        setPaddingDp(0, 16, 0, 16)
         textAppearance = ctx.resolveThemeAttribute(android.R.attr.textAppearanceListItem)
     }
 

@@ -5,7 +5,9 @@
 package org.fcitx.fcitx5.android.ui.main.settings
 
 import android.app.AlertDialog
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +21,8 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -27,9 +31,11 @@ import kotlinx.coroutines.launch
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.core.RawConfig
 import org.fcitx.fcitx5.android.daemon.FcitxDisconnectedException
+import org.fcitx.fcitx5.android.data.RimeDataDirectoryState
 import org.fcitx.fcitx5.android.ui.common.BaseDynamicListUi
 import org.fcitx.fcitx5.android.ui.main.MainViewModel
 import org.fcitx.fcitx5.android.utils.lazyRoute
+import org.fcitx.fcitx5.android.utils.ExternalRimeStorage
 import org.fcitx.fcitx5.android.utils.toast
 import timber.log.Timber
 
@@ -51,9 +57,17 @@ class AddonDirProfileManagerFragment : Fragment() {
     private var containerView: FrameLayout? = null
     private var latestState: ManagerState? = null
 
-    // Set when the user tapped "Use external path" but the all-files permission
-    // was missing; the folder picker starts once onResume observes the grant.
-    private var pendingExternalPick = false
+    private val allFilesAccessLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (hasExternalStorageAccess()) pickDirectoryLauncher.launch(null)
+            else requireContext().toast(R.string.addon_dir_profile_all_files_permission_required)
+        }
+
+    private val legacyStoragePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) pickDirectoryLauncher.launch(null)
+            else requireContext().toast(R.string.addon_dir_profile_storage_permission_required)
+        }
 
     private val pickDirectoryLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -87,41 +101,46 @@ class AddonDirProfileManagerFragment : Fragment() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        // Returning from the system "All files access" settings page: re-check
-        // the permission and continue with the folder picker when granted.
-        if (pendingExternalPick) {
-            pendingExternalPick = false
-            if (hasAllFilesAccess()) {
-                pickDirectoryLauncher.launch(null)
-            } else {
-                requireContext().toast(R.string.addon_dir_profile_all_files_permission_required)
-            }
-        }
-    }
-
     override fun onDestroyView() {
         containerView = null
         super.onDestroyView()
     }
 
-    private fun hasAllFilesAccess(): Boolean {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
-                Environment.isExternalStorageManager()
+    private fun hasExternalStorageAccess(): Boolean = when (ExternalRimeStorage.accessForSdk(Build.VERSION.SDK_INT)) {
+        ExternalRimeStorage.Access.LegacyPermission -> ContextCompat.checkSelfPermission(
+            requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
+        ExternalRimeStorage.Access.Unsupported -> false
+        ExternalRimeStorage.Access.AllFilesPermission ->
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()
     }
 
+    private fun pickExternalDirectory() {
+        if (hasExternalStorageAccess()) {
+            pickDirectoryLauncher.launch(null)
+            return
+        }
+        when (ExternalRimeStorage.accessForSdk(Build.VERSION.SDK_INT)) {
+            ExternalRimeStorage.Access.LegacyPermission ->
+                legacyStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            ExternalRimeStorage.Access.Unsupported ->
+                requireContext().toast(R.string.addon_dir_profile_android10_unsupported)
+            ExternalRimeStorage.Access.AllFilesPermission -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) requestAllFilesAccess()
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun requestAllFilesAccess() {
-        pendingExternalPick = true
         val intent = Intent(
             Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
             Uri.parse("package:${requireContext().packageName}")
         )
-        runCatching { startActivity(intent) }.onFailure {
+        runCatching { allFilesAccessLauncher.launch(intent) }.onFailure {
             runCatching {
-                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                allFilesAccessLauncher.launch(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
             }.onFailure {
-                pendingExternalPick = false
                 requireContext().toast(it)
             }
         }
@@ -135,15 +154,9 @@ class AddonDirProfileManagerFragment : Fragment() {
         val documentId = runCatching {
             DocumentsContract.getTreeDocumentId(uri)
         }.getOrNull() ?: return null
-        val volume = documentId.substringBefore(':')
-        val relative = documentId.substringAfter(':', "").trim('/')
-        val base = when {
-            volume.equals("primary", ignoreCase = true) ->
-                Environment.getExternalStorageDirectory().absolutePath
-            volume.isNotBlank() -> "/storage/$volume"
-            else -> return null
-        }
-        return if (relative.isEmpty()) base else "$base/$relative"
+        return ExternalRimeStorage.absolutePath(
+            uri.authority, documentId, Environment.getExternalStorageDirectory().absolutePath
+        )
     }
 
     private suspend fun loadState(): ManagerState {
@@ -151,27 +164,14 @@ class AddonDirProfileManagerFragment : Fragment() {
             getAddonSubConfig(args.addon, args.path)
         }
         val cfg = raw.findByName("cfg") ?: raw
-        val current = cfg.findByName("Current")?.value.orEmpty().trim()
-        val profiles = cfg.findByName("Profiles")?.value.orEmpty()
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinct()
-            .toList()
-        val paths = cfg.findByName("Paths")?.value.orEmpty()
-            .lineSequence()
-            .mapNotNull { line ->
-                val sep = line.indexOf('|')
-                if (sep <= 0 || sep + 1 >= line.length) return@mapNotNull null
-                line.substring(0, sep) to line.substring(sep + 1)
-            }
-            .toMap()
-        Timber.d("Profile manager state: current=$current, profiles=$profiles, paths=$paths")
+        val state = RimeDataDirectoryState.fromConfig(
+            raw, requireContext().getExternalFilesDir(null)!!.resolve("data")
+        )
         val error = cfg.findByName("Error")?.value.orEmpty()
         return ManagerState(
-            current = current,
-            profiles = profiles,
-            paths = paths,
+            current = state.current,
+            profiles = state.profiles,
+            paths = state.paths,
             error = error
         )
     }
@@ -259,15 +259,15 @@ class AddonDirProfileManagerFragment : Fragment() {
             .setNegativeButton(android.R.string.cancel, null)
             // Neutral button sits at the bottom-left of the dialog.
             .setNeutralButton(R.string.addon_dir_profile_use_external_path) { _, _ ->
-                if (hasAllFilesAccess()) {
-                    pickDirectoryLauncher.launch(null)
-                } else {
-                    requestAllFilesAccess()
-                }
+                pickExternalDirectory()
             }
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val value = input.text?.toString()?.trim().orEmpty()
                 if (value.isNotEmpty()) {
+                    if (externalPath != null && !hasExternalStorageAccess()) {
+                        pickExternalDirectory()
+                        return@setPositiveButton
+                    }
                     viewLifecycleOwner.lifecycleScope.launch {
                         runAction(action = "create", name = value, externalPath = externalPath)
                     }
@@ -353,7 +353,7 @@ class AddonDirProfileManagerFragment : Fragment() {
         if (!externalPath.isNullOrBlank()) {
             items.add(RawConfig("ExternalPath", externalPath))
         }
-        Timber.d("Profile action: $action, name=$name, newName=$newName, externalPath=$externalPath")
+        Timber.d("Profile action: $action, external=${externalPath != null}")
         try {
             viewModel.fcitx.runOnReady {
                 setAddonSubConfig(args.addon, args.path, RawConfig(items.toTypedArray()))

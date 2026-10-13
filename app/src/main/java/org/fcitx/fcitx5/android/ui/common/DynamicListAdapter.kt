@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 import org.fcitx.fcitx5.android.ui.main.MainViewModel
 import org.fcitx.fcitx5.android.ui.main.MainViewModel.ButtonMode
 import java.util.Collections
+import splitties.views.setPaddingDp
 
 abstract class DynamicListAdapter<T>(
     initialEntries: List<T>,
@@ -94,6 +95,8 @@ abstract class DynamicListAdapter<T>(
             }
             nameText.text = showEntry(item)
             val subEntry = showSubEntry(item)
+            nameText.setPaddingDp(0, if (subEntry.isNullOrEmpty()) 16 else 12, 0,
+                if (subEntry.isNullOrEmpty()) 16 else 0)
             subText.visibility = if (subEntry.isNullOrEmpty()) View.GONE else View.VISIBLE
             subText.text = subEntry
 
